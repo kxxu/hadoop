@@ -57,6 +57,7 @@ if(WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS")
     # Omit unneeded headers.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32_LEAN_AND_MEAN")
+	set(MSBuildExtensionsPath "C:\Program Files (x86)\MSBuild")
     set(OS_DIR ${CMAKE_SOURCE_DIR}/main/native/libhdfs/os/windows)
     set(OUT_DIR target/bin)
 else()

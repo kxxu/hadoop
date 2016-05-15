@@ -50,6 +50,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -255,6 +256,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   final LocalFileSystem localFS;
 
   private boolean blockPinningEnabled;
+  private final int maxDataLength;
   
   /**
    * An FSDataset has a directory where it loads its data files.
@@ -268,24 +270,15 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     this.smallBufferSize = DFSUtilClient.getSmallBufferSize(conf);
     // The number of volumes required for operation is the total number
     // of volumes minus the number of failed volumes we can tolerate.
-    volFailuresTolerated =
-      conf.getInt(DFSConfigKeys.DFS_DATANODE_FAILED_VOLUMES_TOLERATED_KEY,
-                  DFSConfigKeys.DFS_DATANODE_FAILED_VOLUMES_TOLERATED_DEFAULT);
+    volFailuresTolerated = datanode.getDnConf().getVolFailuresTolerated();
 
-    String[] dataDirs = conf.getTrimmedStrings(DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY);
     Collection<StorageLocation> dataLocations = DataNode.getStorageLocations(conf);
     List<VolumeFailureInfo> volumeFailureInfos = getInitialVolumeFailureInfos(
         dataLocations, storage);
 
-    int volsConfigured = (dataDirs == null) ? 0 : dataDirs.length;
+    int volsConfigured = datanode.getDnConf().getVolsConfigured();
     int volsFailed = volumeFailureInfos.size();
 
-    if (volFailuresTolerated < 0 || volFailuresTolerated >= volsConfigured) {
-      throw new DiskErrorException("Invalid value configured for "
-          + "dfs.datanode.failed.volumes.tolerated - " + volFailuresTolerated
-          + ". Value configured is either less than 0 or >= "
-          + "to the number of configured volumes (" + volsConfigured + ").");
-    }
     if (volsFailed > volFailuresTolerated) {
       throw new DiskErrorException("Too many failed volumes - "
           + "current valid volumes: " + storage.getNumStorageDirs() 
@@ -342,6 +335,9 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     blockPinningEnabled = conf.getBoolean(
       DFSConfigKeys.DFS_DATANODE_BLOCK_PINNING_ENABLED,
       DFSConfigKeys.DFS_DATANODE_BLOCK_PINNING_ENABLED_DEFAULT);
+    maxDataLength = conf.getInt(
+        CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH,
+        CommonConfigurationKeys.IPC_MAXIMUM_DATA_LENGTH_DEFAULT);
   }
 
   /**
@@ -1742,7 +1738,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
     List<FsVolumeImpl> curVolumes = volumes.getVolumes();
     for (FsVolumeSpi v : curVolumes) {
-      builders.put(v.getStorageID(), BlockListAsLongs.builder());
+      builders.put(v.getStorageID(), BlockListAsLongs.builder(maxDataLength));
     }
 
     synchronized(this) {

@@ -31,6 +31,7 @@ import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
@@ -55,6 +56,7 @@ import org.junit.Test;
  * 
  */
 public class TestJMXGet {
+  public static final String WRONG_METRIC_VALUE_ERROR_MSG = "Unable to get the correct value for %s.";
 
   private Configuration config;
   private MiniDFSCluster cluster;
@@ -106,14 +108,14 @@ public class TestJMXGet {
     assertTrue("error printAllValues", checkPrintAllValues(jmx));
 
     //get some data from different source
-    DFSTestUtil.waitForMetric(jmx, "NumLiveDataNodes", numDatanodes);
-    assertEquals(numDatanodes, Integer.parseInt(
+    try {
+      DFSTestUtil.waitForMetric(jmx, "NumLiveDataNodes", numDatanodes);
+    } catch (TimeoutException e) {
+    assertEquals(String.format(WRONG_METRIC_VALUE_ERROR_MSG, "NumLiveDataNodes"),numDatanodes, Integer.parseInt(
         jmx.getValue("NumLiveDataNodes")));
+    }
     assertGauge("CorruptBlocks", Long.parseLong(jmx.getValue("CorruptBlocks")),
                 getMetrics("FSNamesystem"));
-    DFSTestUtil.waitForMetric(jmx, "NumOpenConnections", numDatanodes);
-    assertEquals(numDatanodes, Integer.parseInt(
-        jmx.getValue("NumOpenConnections")));
 
     cluster.shutdown();
     MBeanServerConnection mbsc = ManagementFactory.getPlatformMBeanServer();
@@ -161,8 +163,11 @@ public class TestJMXGet {
     String serviceName = "DataNode";
     jmx.setService(serviceName);
     jmx.init();
-    DFSTestUtil.waitForMetric(jmx, "BytesWritten", fileSize);
-    assertEquals(fileSize, Integer.parseInt(jmx.getValue("BytesWritten")));
+    try {
+      DFSTestUtil.waitForMetric(jmx, "BytesWritten", fileSize);
+    } catch (TimeoutException e) {
+      assertEquals(String.format(WRONG_METRIC_VALUE_ERROR_MSG, "BytesWritten"), fileSize, Integer.parseInt(jmx.getValue("BytesWritten")));
+    }
 
     cluster.shutdown();
     MBeanServerConnection mbsc = ManagementFactory.getPlatformMBeanServer();

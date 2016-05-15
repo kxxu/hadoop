@@ -104,9 +104,9 @@ Usage: `hadoop credential <subcommand> [options]`
 
 | COMMAND\_OPTION | Description |
 |:---- |:---- |
-| create *alias* [-provider *provider-path*] | Prompts the user for a credential to be stored as the given alias. The *hadoop.security.credential.provider.path* within the core-site.xml file will be used unless a `-provider` is indicated. |
-| delete *alias* [-provider *provider-path*] [-f] | Deletes the credential with the provided alias. The *hadoop.security.credential.provider.path* within the core-site.xml file will be used unless a `-provider` is indicated. The command asks for confirmation unless `-f` is specified |
-| list [-provider *provider-path*] | Lists all of the credential aliases The *hadoop.security.credential.provider.path* within the core-site.xml file will be used unless a `-provider` is indicated. |
+| create *alias* [-provider *provider-path*] [-strict] [-value *credential-value*] | Prompts the user for a credential to be stored as the given alias. The *hadoop.security.credential.provider.path* within the core-site.xml file will be used unless a `-provider` is indicated. The `-strict` flag will cause the command to fail if the provider uses a default password. Use `-value` flag to supply the credential value (a.k.a. the alias password) instead of being prompted. |
+| delete *alias* [-provider *provider-path*] [-strict] [-f] | Deletes the credential with the provided alias. The *hadoop.security.credential.provider.path* within the core-site.xml file will be used unless a `-provider` is indicated. The `-strict` flag will cause the command to fail if the provider uses a default password. The command asks for confirmation unless `-f` is specified |
+| list [-provider *provider-path*] [-strict] | Lists all of the credential aliases The *hadoop.security.credential.provider.path* within the core-site.xml file will be used unless a `-provider` is indicated. The `-strict` flag will cause the command to fail if the provider uses a default password. |
 
 Command to manage credentials, passwords and secrets within credential providers.
 
@@ -115,6 +115,8 @@ The CredentialProvider API in Hadoop allows for the separation of applications a
 indicates that the current user's credentials file should be consulted through the User Provider, that the local file located at `/tmp/test.jceks` is a Java Keystore Provider and that the file located within HDFS at `nn1.example.com/my/path/test.jceks` is also a store for a Java Keystore Provider.
 
 When utilizing the credential command it will often be for provisioning a password or secret to a particular credential store provider. In order to explicitly indicate which provider store to use the `-provider` option should be used. Otherwise, given a path of multiple providers, the first non-transient provider will be used. This may or may not be the one that you intended.
+
+Providers frequently require that a password or other secret is supplied. If the provider requires a password and is unable to find one, it will use a default password and emit a warning message that the default password is being used. If the `-strict` flag is supplied, the warning message becomes an error message and the command returns immediately with an error status.
 
 Example: `hadoop credential list -provider jceks://file/tmp/test.jceks`
 
@@ -134,9 +136,32 @@ Change the ownership and permissions on many files at once.
 
 Copy file or directories recursively. More information can be found at [Hadoop DistCp Guide](../../hadoop-distcp/DistCp.html).
 
+### `dtutil`
+
+Usage: `hadoop dtutil [-keytab` *keytab_file* `-principal` *principal_name* `]` *subcommand* `[-format (java|protobuf)] [-alias` *alias* `] [-renewer` *renewer* `]` *filename...*
+
+Utility to fetch and manage hadoop delegation tokens inside credentials files.  It is intended to replace the simpler command `fetchdt`.  There are multiple subcommands, each with their own flags and options.
+
+For every subcommand that writes out a file, the `-format` option will specify the internal format to use.  `java` is the legacy format that matches `fetchdt`.  The default is `protobuf`.
+
+For every subcommand that connects to a service, convenience flags are provided to specify the kerberos principal name and keytab file to use for auth.
+
+| SUBCOMMAND | Description |
+|:---- |:---- |
+| `print` <br/>&nbsp;&nbsp; `[-alias` *alias* `]` <br/>&nbsp;&nbsp; *filename* `[` *filename2* `...]` | Print out the fields in the tokens contained in *filename* (and *filename2* ...). <br/> If *alias* is specified, print only tokens matching *alias*.  Otherwise, print all tokens. |
+| `get` *URL* <br/>&nbsp;&nbsp; `[-service` *scheme* `]` <br/>&nbsp;&nbsp; `[-format (java|protobuf)]` <br/>&nbsp;&nbsp; `[-alias` *alias* `]` <br/>&nbsp;&nbsp; `[-renewer` *renewer* `]` <br/>&nbsp;&nbsp; *filename* | Fetch a token from service at *URL* and place it in *filename*. <br/> *URL* is required and must immediately follow `get`.<br/> *URL* is the service URL, e.g. *hdfs:&#47;&#47;localhost:9000*. <br/> *alias* will overwrite the service field in the token. <br/> It is intended for hosts that have external and internal names, e.g. *firewall.com:14000*. <br/> *filename* should come last and is the name of the token file. <br/>  It will be created if it does not exist.  Otherwise, token(s) are added to existing file. <br/> The `-service` flag should only be used with a URL which starts with `http` or `https`. <br/> The following are equivalent: *hdfs:&#47;&#47;localhost:9000/* vs. *http:&#47;&#47;localhost:9000* `-service` *hdfs* |
+| `append` <br/>&nbsp;&nbsp; `[-format (java|protobuf)]` <br/>&nbsp;&nbsp; *filename* *filename2* `[` *filename3* `...]` | Append the contents of the first N filenames onto the last filename. <br/>  When tokens with common service fields are present in multiple files, earlier files' tokens are overwritten. <br/>  That is, tokens present in the last file are always preserved. |
+| `remove -alias` *alias* <br/>&nbsp;&nbsp; `[-format (java|protobuf)]` <br/>&nbsp;&nbsp; *filename* `[` *filename2* `...]` | From each file specified, remove the tokens matching *alias* and write out each file using specified format. <br/>  *alias* must be specified. |
+| `cancel -alias` *alias* <br/>&nbsp;&nbsp; `[-format (java|protobuf)]` <br/>&nbsp;&nbsp;  *filename* `[` *filename2* `...]` | Just like `remove`, except the tokens are also cancelled using the service specified in the token object. <br/> *alias* must be specified. |
+| `renew -alias` *alias* <br/>&nbsp;&nbsp; `[-format (java|protobuf)]` <br/>&nbsp;&nbsp;  *filename* `[` *filename2* `...]` | For each file specified, renew the tokens matching *alias* and write out each file using specified format. <br/> *alias* must be specified. |
+
 ### `fs`
 
 This command is documented in the [File System Shell Guide](./FileSystemShell.html). It is a synonym for `hdfs dfs` when HDFS is in use.
+
+### `gridmix`
+
+Gridmix is a benchmark tool for Hadoop cluster. More information can be found in the [Gridmix Guide](../../hadoop-gridmix/GridMix.html).
 
 ### `jar`
 
@@ -167,13 +192,15 @@ Usage: `hadoop key <subcommand> [options]`
 
 | COMMAND\_OPTION | Description |
 |:---- |:---- |
-| create *keyname* [-cipher *cipher*] [-size *size*] [-description *description*] [-attr *attribute=value*] [-provider *provider*] [-help] | Creates a new key for the name specified by the *keyname* argument within the provider specified by the `-provider` argument. You may specify a cipher with the `-cipher` argument. The default cipher is currently "AES/CTR/NoPadding". The default keysize is 128. You may specify the requested key length using the `-size` argument. Arbitrary attribute=value style attributes may be specified using the `-attr` argument. `-attr` may be specified multiple times, once per attribute. |
-| roll *keyname* [-provider *provider*] [-help] | Creates a new version for the specified key within the provider indicated using the `-provider` argument |
-| delete *keyname* [-provider *provider*] [-f] [-help] | Deletes all versions of the key specified by the *keyname* argument from within the provider specified by `-provider`. The command asks for user confirmation unless `-f` is specified. |
-| list [-provider *provider*] [-metadata] [-help] | Displays the keynames contained within a particular provider as configured in core-site.xml or specified with the `-provider` argument. `-metadata` displays the metadata. |
+| create *keyname* [-cipher *cipher*] [-size *size*] [-description *description*] [-attr *attribute=value*] [-provider *provider*] [-strict] [-help] | Creates a new key for the name specified by the *keyname* argument within the provider specified by the `-provider` argument. The `-strict` flag will cause the command to fail if the provider uses a default password. You may specify a cipher with the `-cipher` argument. The default cipher is currently "AES/CTR/NoPadding". The default keysize is 128. You may specify the requested key length using the `-size` argument. Arbitrary attribute=value style attributes may be specified using the `-attr` argument. `-attr` may be specified multiple times, once per attribute. |
+| roll *keyname* [-provider *provider*] [-strict] [-help] | Creates a new version for the specified key within the provider indicated using the `-provider` argument. The `-strict` flag will cause the command to fail if the provider uses a default password. |
+| delete *keyname* [-provider *provider*] [-strict] [-f] [-help] | Deletes all versions of the key specified by the *keyname* argument from within the provider specified by `-provider`. The `-strict` flag will cause the command to fail if the provider uses a default password. The command asks for user confirmation unless `-f` is specified. |
+| list [-provider *provider*] [-strict] [-metadata] [-help] | Displays the keynames contained within a particular provider as configured in core-site.xml or specified with the `-provider` argument. The `-strict` flag will cause the command to fail if the provider uses a default password. `-metadata` displays the metadata. |
 | -help | Prints usage of this command |
 
 Manage keys via the KeyProvider. For details on KeyProviders, see the [Transparent Encryption Guide](../hadoop-hdfs/TransparentEncryption.html).
+
+Providers frequently require that a password or other secret is supplied. If the provider requires a password and is unable to find one, it will use a default password and emit a warning message that the default password is being used. If the `-strict` flag is supplied, the warning message becomes an error message and the command returns immediately with an error status.
 
 NOTE: Some KeyProviders (e.g. org.apache.hadoop.crypto.key.JavaKeyStoreProvider) does not support uppercase key names.
 
@@ -212,7 +239,7 @@ Usage:
 
 Get/Set the log level for a Log identified by a qualified class name in the daemon.
 
-	Example: $ bin/hadoop daemonlog -setlevel 127.0.0.1:50070 org.apache.hadoop.hdfs.server.namenode.NameNode DEBUG
+	Example: $ bin/hadoop daemonlog -setlevel 127.0.0.1:9870 org.apache.hadoop.hdfs.server.namenode.NameNode DEBUG
 
 Files
 -----

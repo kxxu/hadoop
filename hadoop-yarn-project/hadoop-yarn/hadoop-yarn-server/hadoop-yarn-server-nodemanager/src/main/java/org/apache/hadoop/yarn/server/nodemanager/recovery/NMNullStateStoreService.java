@@ -59,10 +59,6 @@ public class NMNullStateStoreService extends NMStateStoreService {
   }
 
   @Override
-  public void storeFinishedApplication(ApplicationId appId) {
-  }
-
-  @Override
   public void removeApplication(ApplicationId appId) throws IOException {
   }
 
@@ -76,6 +72,10 @@ public class NMNullStateStoreService extends NMStateStoreService {
   @Override
   public void storeContainer(ContainerId containerId,
       StartContainerRequest startRequest) throws IOException {
+  }
+
+  @Override
+  public void storeContainerQueued(ContainerId containerId) throws IOException {
   }
 
   @Override
@@ -101,6 +101,21 @@ public class NMNullStateStoreService extends NMStateStoreService {
   @Override
   public void storeContainerCompleted(ContainerId containerId, int exitCode)
       throws IOException {
+  }
+
+  @Override
+  public void storeContainerRemainingRetryAttempts(ContainerId containerId,
+      int remainingRetryAttempts) throws IOException {
+  }
+
+  @Override
+  public void storeContainerWorkDir(ContainerId containerId,
+      String workDir) throws IOException {
+  }
+
+  @Override
+  public void storeContainerLogDir(ContainerId containerId,
+      String logDir) throws IOException {
   }
 
   @Override

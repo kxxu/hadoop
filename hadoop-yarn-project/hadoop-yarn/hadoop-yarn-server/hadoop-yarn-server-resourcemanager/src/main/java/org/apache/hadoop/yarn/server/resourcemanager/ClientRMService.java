@@ -305,9 +305,7 @@ public class ClientRMService extends AbstractService implements
     return applicationsACLsManager
         .checkAccess(callerUGI, operationPerformed, owner,
             application.getApplicationId()) || queueACLsManager
-        .checkAccess(callerUGI, QueueACL.ADMINISTER_QUEUE,
-            application.getQueue(), application.getApplicationId(),
-            application.getName());
+        .checkAccess(callerUGI, QueueACL.ADMINISTER_QUEUE, application);
   }
 
   ApplicationId getNewApplicationId() {
@@ -753,9 +751,14 @@ public class ClientRMService extends AbstractService implements
       return KillApplicationResponse.newInstance(true);
     }
 
+    String message = "Kill application " + applicationId +
+        " received from " + callerUGI;
+    if(null != Server.getRemoteAddress()) {
+      message += " at " + Server.getRemoteAddress();
+    }
     this.rmContext.getDispatcher().getEventHandler().handle(
         new RMAppEvent(applicationId, RMAppEventType.KILL,
-        "Application killed by user."));
+        message));
 
     // For UnmanagedAMs, return true so they don't retry
     return KillApplicationResponse.newInstance(
@@ -1620,7 +1623,7 @@ public class ClientRMService extends AbstractService implements
     if (application == null) {
       RMAuditLogger.logFailure(callerUGI.getUserName(),
           AuditConstants.SIGNAL_CONTAINER, "UNKNOWN", "ClientRMService",
-          "Trying to signal an absent container", applicationId, containerId);
+          "Trying to signal an absent container", applicationId, containerId, null);
       throw RPCUtil
           .getRemoteException("Trying to signal an absent container "
               + containerId);
@@ -1644,11 +1647,11 @@ public class ClientRMService extends AbstractService implements
               request));
       RMAuditLogger.logSuccess(callerUGI.getShortUserName(),
           AuditConstants.SIGNAL_CONTAINER, "ClientRMService", applicationId,
-          containerId);
+          containerId, null);
     } else {
       RMAuditLogger.logFailure(callerUGI.getUserName(),
           AuditConstants.SIGNAL_CONTAINER, "UNKNOWN", "ClientRMService",
-          "Trying to signal an absent container", applicationId, containerId);
+          "Trying to signal an absent container", applicationId, containerId, null);
       throw RPCUtil
           .getRemoteException("Trying to signal an absent container "
               + containerId);

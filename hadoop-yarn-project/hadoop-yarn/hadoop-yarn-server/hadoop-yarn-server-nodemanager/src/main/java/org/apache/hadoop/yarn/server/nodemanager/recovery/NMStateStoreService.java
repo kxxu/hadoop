@@ -34,6 +34,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.records.ContainerRetryContext;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.proto.YarnProtos.LocalResourceProto;
 import org.apache.hadoop.yarn.proto.YarnServerNodemanagerRecoveryProtos.ContainerManagerApplicationProto;
@@ -52,19 +53,16 @@ public abstract class NMStateStoreService extends AbstractService {
 
   public static class RecoveredApplicationsState {
     List<ContainerManagerApplicationProto> applications;
-    List<ApplicationId> finishedApplications;
 
     public List<ContainerManagerApplicationProto> getApplications() {
       return applications;
     }
 
-    public List<ApplicationId> getFinishedApplications() {
-      return finishedApplications;
-    }
   }
 
   public enum RecoveredContainerStatus {
     REQUESTED,
+    QUEUED,
     LAUNCHED,
     COMPLETED
   }
@@ -76,6 +74,9 @@ public abstract class NMStateStoreService extends AbstractService {
     String diagnostics = "";
     StartContainerRequest startRequest;
     Resource capability;
+    private int remainingRetryAttempts = ContainerRetryContext.RETRY_INVALID;
+    private String workDir;
+    private String logDir;
 
     public RecoveredContainerStatus getStatus() {
       return status;
@@ -101,6 +102,30 @@ public abstract class NMStateStoreService extends AbstractService {
       return capability;
     }
 
+    public int getRemainingRetryAttempts() {
+      return remainingRetryAttempts;
+    }
+
+    public void setRemainingRetryAttempts(int retryAttempts) {
+      this.remainingRetryAttempts = retryAttempts;
+    }
+
+    public String getWorkDir() {
+      return workDir;
+    }
+
+    public void setWorkDir(String workDir) {
+      this.workDir = workDir;
+    }
+
+    public String getLogDir() {
+      return logDir;
+    }
+
+    public void setLogDir(String logDir) {
+      this.logDir = logDir;
+    }
+
     @Override
     public String toString() {
       return new StringBuffer("Status: ").append(getStatus())
@@ -109,6 +134,9 @@ public abstract class NMStateStoreService extends AbstractService {
           .append(", Diagnostics: ").append(getDiagnostics())
           .append(", Capability: ").append(getCapability())
           .append(", StartRequest: ").append(getStartRequest())
+          .append(", RemainingRetryAttempts: ").append(remainingRetryAttempts)
+          .append(", WorkDir: ").append(workDir)
+          .append(", LogDir: ").append(logDir)
           .toString();
     }
   }
@@ -259,14 +287,6 @@ public abstract class NMStateStoreService extends AbstractService {
       ContainerManagerApplicationProto p) throws IOException;
 
   /**
-   * Record that an application has finished
-   * @param appId the application ID
-   * @throws IOException
-   */
-  public abstract void storeFinishedApplication(ApplicationId appId)
-      throws IOException;
-
-  /**
    * Remove records corresponding to an application
    * @param appId the application ID
    * @throws IOException
@@ -291,6 +311,14 @@ public abstract class NMStateStoreService extends AbstractService {
    */
   public abstract void storeContainer(ContainerId containerId,
       StartContainerRequest startRequest) throws IOException;
+
+  /**
+   * Record that a container has been queued at the NM
+   * @param containerId the container ID
+   * @throws IOException
+   */
+  public abstract void storeContainerQueued(ContainerId containerId)
+      throws IOException;
 
   /**
    * Record that a container has been launched
@@ -334,6 +362,34 @@ public abstract class NMStateStoreService extends AbstractService {
    */
   public abstract void storeContainerDiagnostics(ContainerId containerId,
       StringBuilder diagnostics) throws IOException;
+
+  /**
+   * Record remaining retry attempts for a container.
+   * @param containerId the container ID
+   * @param remainingRetryAttempts the remain retry times when container
+   *                               fails to run
+   * @throws IOException
+   */
+  public abstract void storeContainerRemainingRetryAttempts(
+      ContainerId containerId, int remainingRetryAttempts) throws IOException;
+
+  /**
+   * Record working directory for a container.
+   * @param containerId the container ID
+   * @param workDir the working directory
+   * @throws IOException
+   */
+  public abstract void storeContainerWorkDir(
+      ContainerId containerId, String workDir) throws IOException;
+
+  /**
+   * Record log directory for a container.
+   * @param containerId the container ID
+   * @param logDir the log directory
+   * @throws IOException
+   */
+  public abstract void storeContainerLogDir(
+      ContainerId containerId, String logDir) throws IOException;
 
   /**
    * Remove records corresponding to a container
